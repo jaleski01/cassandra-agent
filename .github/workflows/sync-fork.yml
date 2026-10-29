@@ -1,4 +1,3 @@
-
 name: Auto Sync Fork
 
 on:
@@ -12,37 +11,30 @@ permissions:
 jobs:
   sync:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout do fork
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
 
-      - name: Sincronizar com o original
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Sincronizar com o repositorio original
+        shell: bash
         run: |
-          UPSTREAM=$(gh repo view "$GITHUB_REPOSITORY" \
-            --json parent \
-            --jq '.parent.nameWithOwner // empty')
+          set -euo pipefail
 
-          if [ -z "$UPSTREAM" ]; then
-            echo "Repositorio original nao encontrado"
-            exit 1
-          fi
+          # Repositorio de origem confirmado
+          UPSTREAM="DarkyHArry/cassandra-agent"
+          BRANCH="main"
 
-          BRANCH=$(gh repo view "$UPSTREAM" \
-            --json defaultBranchRef \
-            --jq '.defaultBranchRef.name')
-
-          git fetch "https://github.com/$UPSTREAM.git" "$BRANCH"
+          echo "Buscando atualizacoes de ${UPSTREAM}:${BRANCH}"
+          git fetch "https://github.com/${UPSTREAM}.git" "${BRANCH}"
 
           git config user.name "github-actions[bot]"
-          git config user.email \
-            "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+          # Nunca descarta commits do fork; conflitos interrompem o job.
           git merge --no-edit FETCH_HEAD
+          git push origin "HEAD:${BRANCH}"
 
-          git push origin HEAD
+          echo "Sincronizacao concluida."
