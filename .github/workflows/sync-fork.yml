@@ -1,0 +1,48 @@
+
+name: Auto Sync Fork
+
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do fork
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+
+      - name: Sincronizar com o original
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          UPSTREAM=$(gh repo view "$GITHUB_REPOSITORY" \
+            --json parent \
+            --jq '.parent.nameWithOwner // empty')
+
+          if [ -z "$UPSTREAM" ]; then
+            echo "Repositorio original nao encontrado"
+            exit 1
+          fi
+
+          BRANCH=$(gh repo view "$UPSTREAM" \
+            --json defaultBranchRef \
+            --jq '.defaultBranchRef.name')
+
+          git fetch "https://github.com/$UPSTREAM.git" "$BRANCH"
+
+          git config user.name "github-actions[bot]"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git merge --no-edit FETCH_HEAD
+
+          git push origin HEAD
